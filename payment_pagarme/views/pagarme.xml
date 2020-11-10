@@ -2,7 +2,7 @@
 <odoo>
     <data noupdate="1">
 
-        <template id="picpay_button">
+        <template id="pagarme_button">
             <form t-if="checkout_url" method="get" target="_self">
                 <input type="hidden" name="data_set" t-att-data-action-url="checkout_url" data-remove-me=""/>
                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
