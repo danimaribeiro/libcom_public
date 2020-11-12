@@ -16,8 +16,8 @@ class PicPayController(http.Controller):
         return "<status>OK</status>"
 
     @http.route(
-        '/picpay/checkout/redirect', type='http',
+        '/pagarme/checkout/redirect', type='http',
         auth='none', methods=['GET', 'POST'])
-    def picpay_checkout_redirect(self, **post):
+    def pagarme_checkout_redirect(self, **post):
         if 'secure_url' in post:
             return redirect(post['secure_url'])
