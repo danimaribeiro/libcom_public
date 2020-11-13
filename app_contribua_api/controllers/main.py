@@ -54,7 +54,7 @@ class LibcomController(http.Controller):
 
             #fech subscription line data,
             vals_subscription_line = {
-                'product_id': 1, #TALK TO DANIMAR ABOUT THIS ONE
+                'product_id': 6, #TALK TO DANIMAR ABOUT THIS ONE
                 'analytic_account_id': new_subscription.id,
                 'price_unit': rec['monthly_donation'],
                 'uom_id': 1,
