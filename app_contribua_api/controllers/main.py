@@ -49,28 +49,28 @@ class LibcomController(http.Controller):
                 'stage_id': 2
             }
             
-            #create subscription
-            new_subscription = request.env['sale.subscription'].sudo().create(vals_subscription)
+            # #create subscription
+            # new_subscription = request.env['sale.subscription'].sudo().create(vals_subscription)
 
-            #fech subscription line data,
-            vals_subscription_line = {
-                'product_id': 6, #TALK TO DANIMAR ABOUT THIS ONE
-                'analytic_account_id': new_subscription.id,
-                'price_unit': rec['monthly_donation'],
-                'uom_id': 1,
-            }
-            #subscription_line
-            new_subscription_line = request.env['sale.subscription.line'].sudo().create(vals_subscription_line)
+            # #fech subscription line data,
+            # vals_subscription_line = {
+            #     'product_id': "6", 
+            #     'analytic_account_id': new_subscription.id,
+            #     'price_unit': rec['monthly_donation'],
+            #     'uom_id': 1,
+            # }
+            # #subscription_line
+            # new_subscription_line = request.env['sale.subscription.line'].sudo().create(vals_subscription_line)
             
-            #invoice
-            new_invoice = new_subscription.sudo().recurring_invoice()
+            # #invoice
+            # new_invoice = new_subscription.sudo().recurring_invoice()
 
             args = {'succes': True, 
             'message': 'Success', 
             'partner': new_contributor.id, 
             "subscription ID": new_subscription.id,
-            "subscription object": type(new_subscription),
-            "invoice": new_invoice
+            # "subscription object": type(new_subscription),
+            # "invoice": new_invoice
             }
         return args
 
