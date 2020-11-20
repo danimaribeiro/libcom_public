@@ -2,8 +2,7 @@
 {
     'name': "Libcom API Module",
 
-    'author': "Tobias Riis from BPP Consulting",
-    'website': "www.bpp-consulting.com",
+    'author': "Tobias Riis @ IT Brasil",
     'category': 'Uncategorized',
     'application': False,
     'version': '0.1',

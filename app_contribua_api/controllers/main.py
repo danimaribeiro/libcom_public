@@ -2,76 +2,201 @@
 
 from odoo import http
 from odoo.http import request
+from werkzeug.exceptions import abort
+import requests
+import json
 
 class LibcomController(http.Controller):
     
+
     @http.route('/web/session/authenticate', type='json', auth='none') #endopoint for authentication
     def authenticate(self, db, login, password, base_location=None):
         request.session.authenticate(db, login, password)
         return request.env['ir.http'].session_info([])
-    
-
-    @http.route('/api/get_contacts/', type='json', auth='user') #endopoint for getting a list of contacts
-    def get_partners(self):
-        contacts_rec = request.env['sale.subscription'].search([])
-        contacts = []
-        for rec in contacts_rec:
-            vals = {
-                'id': rec.id,
-                'name': rec.name,
-                'partner_id': rec.partner_id
-            }
-            contacts.append(vals)
-        data = {'status': 200, 'message': 'Success', 'response': contacts}
-        return data
 
 
-    @http.route('/api/create_contribua/', type='json', auth='user') #endopoint for creating a contributor
+    @http.route('/api/create_contribua', type='json', auth='user') #endopoint for creating a contributor
     def create_contribua(self, **rec):
         if request.jsonrequest:
+
+            #call Pagarme to create card_hash:
             
-            # fetch partner data, create res.partner
-            if rec['name']: #fordi dette er obligatorisk
-                vals_res = {
+            #pega valores do rec, coloca no outro variavel
+            vals_card = {
+                'card_number' : rec['card_number'],
+                'card_expiration_date' : rec['card_expiration_date'],
+                'card_holder_name' : rec['card_holder_name'],
+                'card_cvv' : rec['card_cvv'],
+            }
+            #pega a chave do api
+            aquirer = request.env['payment.acquirer'].sudo().search([('provider', '=', 'pagarme')])
+            if not aquirer:
+                abort(404, 'Please add a pagarme API key in Odoo')
+            
+            query_params = {
+            'api_key': aquirer.pagarme_api_key,
+            }
+            
+            headers = {
+            'Content-Type': 'application/json',
+            }
+
+            url = 'https://api.pagar.me/1/cards'
+            
+            response = requests.post(
+            url, data=json.dumps(vals_card), headers=headers, params=query_params
+            )
+
+            if not response.ok:
+                abort(400, str(response.json()['errors'][0]['message']))
+            
+            
+            credit_card = response.json()
+            
+            #salvar valor no res partner
+            credit_card['id']
+
+
+            # fetch partner data to create/search res.partner 
+            #if rec['name']: #set up conditions like this for all params
+            vals_res = {
                     'name' : rec['name'],
                     'email' : rec['email'],
-                    #'l10n_br_cnpj_cpf' : rec['l10n_br_cnpj_cpf'] not installed Brazil on db4
+                    #'card_hash' : card_hash
+                    'l10n_br_cnpj_cpf' : rec['l10n_br_cnpj_cpf']
                 }
+            # elif:
+            #     abort(404, 'please provide partner name')
+
+            # if CPF Exist in database, use existing res.partner:
+            contributor = request.env['res.partner'].sudo().search([('l10n_br_cnpj_cpf', '=', vals_res['l10n_br_cnpj_cpf'])])
+            if contributor:
+                
+                contributor.id_customer_pagarme = credit_card['id']
             
-            #create contributor. Has to be changed to search for 
-            new_contributor = request.env['res.partner'].sudo().create(vals_res)
-            #new_contributor = request.env['res.partner'].sudo().search_find(vals_res[l10n_br_cnpj_cpf])
             
+            #else, create new contributor
+            else:
+                vals_res['customer_pagarme'] = credit_card['id']
+                contributor = request.env['res.partner'].sudo().create(vals_res)
+        
+
+
             #fetch subscription data
             vals_subscription = {
                 'name': "subscription " + rec['name'],
-                'partner_id' : new_contributor.id,
+                'partner_id' : contributor.id,
                 'stage_id': 2
             }
             
             #create subscription
             new_subscription = request.env['sale.subscription'].sudo().create(vals_subscription)
 
+            product = request.env['product.product'].sudo().search([('default_code', '=', 'Subscription')])
+            if not product:
+                abort(404, 'please create product "Subscription" in Odoo database')
+            
             #fech subscription line data,
             vals_subscription_line = {
-                'product_id': 6, 
+                'product_id': product.id,  
                 'analytic_account_id': new_subscription.id,
                 'price_unit': rec['monthly_donation'],
                 'uom_id': 1,
             }
             #subscription_line
-            new_subscription_line = request.env['sale.subscription.line'].sudo().create(vals_subscription_line)
+            request.env['sale.subscription.line'].sudo().create(vals_subscription_line)
             
-            #invoice
+            #Fatura
             new_invoice = new_subscription.sudo().recurring_invoice()
 
+            #Create Customer - API CALL TO PAGARME FROM ODOO
+            headers = {
+                'Content-type': 'application/json',
+            }
+            query_params = {
+                'api_key': aquirer.pagarme_api_key,
+            }
+            contributor_vals = {
+                'name': contributor.name,
+                #'amount': rec['monthly_donation'],
+                #'card_hash': contributor.id_customer_pagarme,
+                'email': contributor.email,
+                'external_id': '00000' + str(contributor.id),
+                'type': 'corporation' if contributor.is_company else 'individual',
+                'country': contributor.country_id.code.lower(),
+                'phone_numbers': [
+                    '+5548999990000',
+                ],
+                'documents': [{
+                     'type': 'cnpj' if contributor.is_company else 'cpf',
+                     'number': contributor.l10n_br_cnpj_cpf,
+                }]
+            }
+            url = 'https://api.pagar.me/1/customers'
+            result = None
+            
+            
+            if contributor.id_customer_pagarme:
+                vals = {
+                    'name': contributor.name,
+                    'email': contributor.email,
+                }
+                url = url + '/' + contributor.id_customer_pagarme
+                response = requests.put(url, data=json.dumps(vals), params=query_params, headers=headers)
+                if not response.ok:
+                    abort(400, str(response.json()['errors'][0]['message']))
+                response.raise_for_status()
+                
+            else:
+                response = requests.post(url, data=json.dumps(contributor_vals), params=query_params, headers=headers)
+                if not response.ok:
+                    abort(400, str(response.json()['errors'][0]['message']))
+                response.raise_for_status()
+                result = response.json()
+                contributor.id_customer_pagarme = result['id']
+            
+            #self.env.cr.commit()
+
+            # base_url = (
+            #     self.env["ir.config_parameter"].sudo().get_param("web.base.url")
+            # )
+            
+
+            #CREATE TRANSACTION - SECOND API CALL TO PAGARME
+            
+            trx_values = {
+                'amount': int(rec['monthly_donation'] * 100),
+                'payment_method': rec['payment_method'],
+                #'postback_url': '%s/payment/process' % base_url,
+                'async': False,
+                'installments': 1,
+                'soft_descriptor': '',
+                #'reference_key': values.get('reference_key'),
+                'customer': contributor_vals,
+            }
+
+            headers = {
+                'Content-Type': 'application/json',
+            }
+            url = 'https://api.pagar.me/1/transactions'
+            response = requests.post(
+                url, data=json.dumps(trx_values), headers=headers, params=query_params
+            )
+            if not response.ok:
+                abort(400, str(response.json()['errors'][0]['message']))
+            
+            data = response.json()
+
+            
+            #return id on all objects created
             args = {'succes': True, 
             'message': 'Success', 
-            'partner': new_contributor.id, 
+            'partner': contributor.id, 
             "subscription ID": new_subscription.id,
             "subscription object": type(new_subscription),
             "invoice": new_invoice
             }
+
         return args
 
             #create first recurring invoice. This methid doesnt return the invoice id, 
