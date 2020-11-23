@@ -6,6 +6,7 @@
     'category': 'Uncategorized',
     'application': False,
     'version': '0.1',
+    'website': 'http://itbrasil.com.br/',
 
     'depends': ['base'],
 

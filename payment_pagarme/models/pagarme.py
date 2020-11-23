@@ -21,6 +21,7 @@ class PagarmeAcquirer(models.Model):
         if not self.pagarme_api_key:
             raise UserError('Por favor configure a API Key')
         
+        pagarme.authentication_key(self.pagarme_api_key)
         partner_id = values.get('partner_id')
 
         partner = self.env['res.partner'].browse(partner_id)
@@ -46,6 +47,8 @@ class PagarmeAcquirer(models.Model):
         }
         url = 'https://api.pagar.me/1/customers'
         result = None
+        
+        
         if partner.id_customer_pagarme:
             vals = {
                 'name': partner.name,
@@ -56,7 +59,8 @@ class PagarmeAcquirer(models.Model):
             response.raise_for_status()
             
         else:
-            response = requests.post(url, data=json.dumps(partner_vals), params=query_params, headers=headers)
+            customer = pagarme.customer.create(partner_vals)
+            #response = requests.post(url, data=json.dumps(partner_vals), params=query_params, headers=headers)
             response.raise_for_status()
             result = response.json()
             partner.id_customer_pagarme = result['id']

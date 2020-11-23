@@ -20,7 +20,6 @@ class LibcomController(http.Controller):
     
     
     
-    
     #CREATE CONTRIBUTOR
 
 
@@ -41,7 +40,6 @@ class LibcomController(http.Controller):
                     'card_cvv' : rec['card_cvv'],
                 }
                 
-
                 aquirer = request.env['payment.acquirer'].sudo().search([('provider', '=', 'pagarme')])
                 if not aquirer:
                     abort(404, 'Please add a pagarme API key in Odoo')
@@ -62,7 +60,6 @@ class LibcomController(http.Controller):
 
                 if not response.ok:
                     abort(400, str(response.json()))
-                
                 
                 credit_card = response.json()
                 
@@ -85,8 +82,11 @@ class LibcomController(http.Controller):
 
             # if CPF Exist in database, use existing res.partner:
             contributor = request.env['res.partner'].sudo().search([('l10n_br_cnpj_cpf', '=', vals_res['l10n_br_cnpj_cpf'])])
+            
+            
+            #If payment_method = credit_card, save card_id
+
             if contributor and rec['payment_method'] == 'credit_card':
-                
                 contributor.id_customer_pagarme = credit_card['id']
             
             
@@ -125,7 +125,8 @@ class LibcomController(http.Controller):
             request.env['sale.subscription.line'].sudo().create(vals_subscription_line)
             
             #Fatura
-            new_invoice = new_subscription.sudo().recurring_invoice()
+            
+            invoice_method = new_subscription.sudo().recurring_invoice()
 
 
 
@@ -200,7 +201,7 @@ class LibcomController(http.Controller):
                 'card_id': credit_card['id'] if rec['payment_method'] == 'credit_card' else None,
                 'card_holder_name': contributor.name,
                 
-                #HER ER DU NÅET TIL -- HVORDAN FÅR VI VÆRDIER IND HER?
+                #REMEMBER TO CHANGE THIS
                 'billing': {
                     "name": contributor.name,
                     "address": {
@@ -244,6 +245,21 @@ class LibcomController(http.Controller):
             
 
 
+
+            # AUTOMATIZE INVOICE #
+            #if we the credit card is confirmed, we need to automatically register the payment on the invoice
+            #if it is boleto, we just leave the invoice, and when we get a post back, 
+            invoice = request.env['account.move'].sudo().search([('invoice_origin', '=', new_subscription.code])
+            
+
+            #IF CREDIT CARD AND "PAID", CONFIRM INVOICE
+            if rec['payment_method'] == 'credit_card':
+                 if response.json()['status'] == 'paid':
+                    invoice.action_invoice_register_payment()
+
+            
+
+            # invoice.action_invoice_register_payment('amount'=)
             data = response.json()
 
             
@@ -251,7 +267,7 @@ class LibcomController(http.Controller):
             args = {'succes': True, 
             'message': 'Success', 
             'partner': contributor.id, 
-            "subscription ID": new_subscription.id,
+            "subscription ID": new_subscription,
             "subscription object": type(new_subscription),
             "invoice": new_invoice,
             "info": response.json()
