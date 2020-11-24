@@ -269,7 +269,7 @@ class LibcomController(http.Controller):
             'partner': contributor.id, 
             "subscription ID": new_subscription,
             "subscription object": type(new_subscription),
-            "invoice": new_invoice,
+            "invoice": invoice.id,
             "info": response.json()
             }
 
