@@ -255,8 +255,7 @@ class LibcomController(http.Controller):
             #IF CREDIT CARD AND "PAID", CONFIRM INVOICE
             if rec['payment_method'] == 'credit_card':
                 if response.json()['status'] == 'paid':
-                    payment = invoice.action_invoice_register_payment()
-                    #payment.post
+                    payment = invoice.action_invoice_register_payment('amount'=rec['monthly_payment'], 'journal_id'='PagarMe')
 
             
 
