@@ -249,7 +249,7 @@ class LibcomController(http.Controller):
             # AUTOMATIZE INVOICE #
             #if we the credit card is confirmed, we need to automatically register the payment on the invoice
             #if it is boleto, we just leave the invoice, and when we get a post back, 
-            invoice = request.env['account.move'].sudo().search([('invoice_origin', '=', new_subscription.code])
+            invoice = request.env['account.move'].sudo().search([('invoice_origin', '=', new_subscription.code)])
             
 
             #IF CREDIT CARD AND "PAID", CONFIRM INVOICE
