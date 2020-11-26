@@ -205,19 +205,21 @@ class LibcomController(http.Controller):
                 'billing': {
                     "name": contributor.name,
                     "address": {
-                        "country": "br",
-                        "state": "sp",
-                        "city": "Cotia",
-                        "neighborhood": "Rio Cotia",
-                        "street": "Rua Matrix",
-                        "street_number": "9999",
-                        "zipcode": "06714360"
+                        "country": str(contributor.country_id.code).lower(),
+                        "state": str(contributor.state_id.code).lower(),
+                        "city": str(contributor.city_id).lower(),
+                        "neighborhood": str(contributor.l10n_br_district),
+                        "street": str(contributor.street),
+                        "street_number": str(contributor.street),
+                        "zipcode": str(contributor.l10n_br_number)
                     }  
                 },
+                
+                #Talk with Mateus/Libcom about what to return to contributors
                 "items": [
                         {
                         "id": "subsrciption",
-                        "title": "Subscription",
+                        "title": "Libcom Subscription", #new_subscription.name #add here the invoice_origin,
                         "unit_price": rec['monthly_donation'],
                         "quantity": "1",
                         "tangible": False 
@@ -256,6 +258,8 @@ class LibcomController(http.Controller):
             if rec['payment_method'] == 'credit_card':
                 if response.json()['status'] == 'paid':
                     payment = invoice.action_invoice_register_payment()
+                    
+                    #request.env['account.payment'].browse('')
 
             
 
