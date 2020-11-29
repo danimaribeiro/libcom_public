@@ -35,8 +35,11 @@ class PaymentLink(http.Controller):
                     'default_payment_method' : 'boleto'
                 },
                 'max_orders' : 1,
-                'expires_in' : 60
+                'expires_in' : 60,
+                'postback_config' : {
+                    'transactions' : 'http://6acb9f9ec594.ngrok.io/api/pagarme/payment_link_postback'
                 }
+            }
 
             aquirer = request.env['payment.acquirer'].sudo().search([('provider', '=', 'pagarme')])
             query_params = {
@@ -54,6 +57,6 @@ class PaymentLink(http.Controller):
                 abort(400, str(payment_link.json()))
 
             return payment_link.json()['url']
-
+            
 
 
