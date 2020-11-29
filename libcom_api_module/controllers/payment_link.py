@@ -11,7 +11,8 @@ class PaymentLink(http.Controller):
     @http.route('/api/charge_contributor', type='json', auth='user') 
     def create_payment_link(self, **rec):
         if request.jsonrequest:
-
+            
+            base_url = (self.env["ir.config_parameter"].sudo().get_param("web.base.url")
             link_values = {
                 'amount': int(rec['monthly_donation'] * 100),
                 "items": [{
@@ -37,7 +38,7 @@ class PaymentLink(http.Controller):
                 'max_orders' : 1,
                 'expires_in' : 60,
                 'postback_config' : {
-                    'transactions' : 'http://6acb9f9ec594.ngrok.io/api/pagarme/payment_link_postback'
+                    'transactions' : '%s/api/pagarme/payment_link_postback' % base_url
                 }
             }
 
