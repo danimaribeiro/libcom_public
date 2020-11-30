@@ -65,7 +65,7 @@ class PagarmePaymentLinkPostback(http.Controller):
                 'code' : "Subscription",
                 'description' : 'ATTENCÃO: Criado automatico pela API, segurar que valores são corretos'
             }
-            request.env['product.product'].sudo().create(vals_product)
+            product = request.env['product.product'].sudo().create(vals_product)
             print('created new product')
         print(product.id)
 
