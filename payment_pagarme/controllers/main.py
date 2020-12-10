@@ -6,13 +6,16 @@ from werkzeug.utils import redirect
 _logger = logging.getLogger(__name__)
 
 
-class PicPayController(http.Controller):
+class PagarMeController(http.Controller):
 
     @http.route(
-        '/picpay/notification/', type='http', auth="none",
+        '/pagarme/notification', type='http', auth="none",
         methods=['GET', 'POST'], csrf=False)
-    def picpay_process_payment(self, **post):
-        request.env['payment.transaction'].sudo().form_feedback(post, 'picpay')
+    def pagarme_process_payment(self, **post):
+        print("================================================")
+        print(post)
+        print("================================================")
+        request.env['payment.transaction'].sudo().form_feedback(post, 'pagarme')
         return "<status>OK</status>"
 
     @http.route(

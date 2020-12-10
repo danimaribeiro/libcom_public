@@ -20,74 +20,81 @@ class PagarmeAcquirer(models.Model):
     def pagarme_form_generate_values(self, values):
         if not self.pagarme_api_key:
             raise UserError('Por favor configure a API Key')
-        
-        pagarme.authentication_key(self.pagarme_api_key)
-        partner_id = values.get('partner_id')
 
+        partner_id = values.get('partner_id')
         partner = self.env['res.partner'].browse(partner_id)
-        headers = {
-            'Content-type': 'application/json',
-        }
-        query_params = {
-            'api_key': self.pagarme_api_key,
-        }
-        partner_vals = {
-            'name': partner.name,
-            'email': partner.email,
-            'external_id': '00000' + str(partner.id),
-            'type': 'corporation' if partner.is_company else 'individual',
-            'country': partner.country_id.code.lower(),
-            'phone_numbers': [
-                '+5548999990000',
-            ],
-            'documents': [{
-                'type': 'cnpj' if partner.is_company else 'cpf',
-                'number': re.sub('[^0-9]', '', partner.l10n_br_cnpj_cpf or ''),
-            }]
-        }
-        url = 'https://api.pagar.me/1/customers'
-        result = None
-        
-        
-        if partner.id_customer_pagarme:
-            vals = {
-                'name': partner.name,
-                'email': partner.email,
-            }
-            url = url + '/' + partner.id_customer_pagarme
-            response = requests.put(url, data=json.dumps(vals), params=query_params, headers=headers)
-            response.raise_for_status()
-            
-        else:
-            customer = pagarme.customer.create(partner_vals)
-            #response = requests.post(url, data=json.dumps(partner_vals), params=query_params, headers=headers)
-            response.raise_for_status()
-            result = response.json()
-            partner.id_customer_pagarme = result['id']
-        
-        self.env.cr.commit()
 
         base_url = (
             self.env["ir.config_parameter"].sudo().get_param("web.base.url")
         )
-        
+        url_postback = 'http://82db30ceac2e.ngrok.io'
         values = {
+            "api_key": self.pagarme_api_key,
             'amount': int(values.get('amount') * 100),
-            'payment_method': 'boleto',
-            'postback_url': '%s/payment/process' % base_url,
-            'async': False,
-            'installments': 1,
-            'soft_descriptor': '',
-            'reference_key': values.get('reference_key'),
-            'customer': partner_vals,
+            "items": [
+                {
+                    "id": "1",
+                    "title": "Pagamento Ref: %s" % values.get('reference'),
+                    "unit_price": int(values.get('amount') * 100),
+                    "quantity": 1,
+                    "tangible": False
+                },
+            ],
+            "payment_config": {
+                "boleto": {
+                    "enabled": True,
+                    "expires_in": 2880
+                },
+                "credit_card": {
+                    "enabled": True,
+                    "free_installments": 4,
+                    "interest_rate": 25,
+                    "max_installments": 12
+                },
+                "default_payment_method": "boleto"
+            },
+            "postback_config": {
+                "orders": '%s/pagarme/notification' % url_postback,
+                "transactions": '%s/pagarme/notification' % url_postback
+            },
+            "customer_config":{  
+                "customer":{  
+                    'name': partner.name,
+                    'email': partner.email,
+                    'external_id': '00000' + str(partner.id),
+                    'type': 'corporation' if partner.is_company else 'individual',
+                    'country': partner.country_id.code.lower(),
+                    'phone_numbers': [
+                        '+5548999990000',
+                    ],
+                    'documents': [{
+                        'type': 'cnpj' if partner.is_company else 'cpf',
+                        'number': re.sub('[^0-9]', '', partner.l10n_br_cnpj_cpf or ''),
+                    }]
+                },
+                "billing":{  
+                    "name": partner.name,
+                    "address":{  
+                        "country": partner.country_id.code.lower(),
+                        "state": partner.state_id.code,
+                        "city": partner.city_id.name,
+                        "neighborhood": partner.l10n_br_district,
+                        "street": partner.street,
+                        "street_number": partner.l10n_br_number,
+                        "zipcode": re.sub('[^0-9]', '', partner.zip or '')
+                    }
+                },
+            },
+            "max_orders": 1,
+            "expires_in": 2880
         }
 
         headers = {
-            'Content-Type': 'application/json',
+            'Content-type': 'application/json',
         }
-        url = 'https://api.pagar.me/1/transactions'
+        url = "https://api.pagar.me/1/payment_links"
         response = requests.post(
-            url, data=json.dumps(values), headers=headers, params=query_params
+            url, data=json.dumps(values), headers=headers
         )
 
         data = response.json()
@@ -95,7 +102,7 @@ class PagarmeAcquirer(models.Model):
         return {
             "checkout_url": urls.url_join(
                 base_url, "/pagarme/checkout/redirect"),
-            "secure_url": data['boleto_url']
+            "secure_url": data['url']
         }
 
 
